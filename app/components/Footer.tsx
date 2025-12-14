@@ -125,15 +125,15 @@ export default function Footer() {
           {/* Additional Links */}
           <div className="mt-4 text-center">
             <div className="flex flex-wrap justify-center space-x-4 text-xs sm:text-sm">
-              <Link href="#" className="text-gray-400 hover:text-white transition">
+              <Link href="/privacy" className="text-gray-400 hover:text-white transition">
                 Privacy Policy
               </Link>
               <span className="text-gray-600">•</span>
-              <Link href="#" className="text-gray-400 hover:text-white transition">
+              <Link href="/terms" className="text-gray-400 hover:text-white transition">
                 Terms of Service
               </Link>
               <span className="text-gray-600">•</span>
-              <Link href="#" className="text-gray-400 hover:text-white transition">
+              <Link href="/cookies" className="text-gray-400 hover:text-white transition">
                 Cookie Policy
               </Link>
             </div>
