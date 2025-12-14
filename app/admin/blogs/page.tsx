@@ -44,44 +44,57 @@ export default function AdminBlogsPage() {
     }
   }, [session])
 
-  const fetchBlogs = () => {
-    // Sample data - replace with API call
-    const sampleBlogs: Blog[] = [
-      {
-        id: '1',
-        title: 'Getting Started with Data Structures',
-        excerpt: 'Learn the fundamentals...',
-        content: 'Full content...',
-        category: 'Tutorial',
-        isPublished: true,
-        createdAt: new Date().toISOString()
+  const fetchBlogs = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/blog')
+      if (response.ok) {
+        const data = await response.json()
+        setBlogs(data)
+      } else {
+        console.error('Failed to fetch blogs')
       }
-    ]
-    setBlogs(sampleBlogs)
+    } catch (error) {
+      console.error('Error fetching blogs:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!blogForm.title || !blogForm.content) {
-      alert('Please fill in all required fields')
+      alert('Please fill in title and content')
       return
     }
 
     setCreating(true)
 
     try {
-      // TODO: API call to create blog
-      alert('Blog created successfully!')
-      setBlogForm({
-        title: '',
-        excerpt: '',
-        content: '',
-        category: 'Tutorial',
-        isPublished: true
+      const response = await fetch('/api/blog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(blogForm)
       })
-      setActiveView('list')
-      fetchBlogs()
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert('Blog created successfully!')
+        setBlogForm({
+          title: '',
+          excerpt: '',
+          content: '',
+          category: 'Tutorial',
+          isPublished: true
+        })
+        setActiveView('list')
+        await fetchBlogs() // Refresh list
+      } else {
+        alert(data.error || 'Failed to create blog')
+        console.error('Error:', data)
+      }
     } catch (error) {
       console.error('Error creating blog:', error)
       alert('Failed to create blog')
@@ -90,12 +103,24 @@ export default function AdminBlogsPage() {
     }
   }
 
-  const handleDelete = (blogId: string) => {
+  const handleDelete = async (blogId: string) => {
     if (!confirm('Are you sure you want to delete this blog?')) return
     
-    // TODO: API call to delete
-    alert('Blog deleted!')
-    fetchBlogs()
+    try {
+      const response = await fetch(`/api/blog?id=${blogId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        alert('Blog deleted successfully!')
+        await fetchBlogs() // Refresh list
+      } else {
+        alert('Failed to delete blog')
+      }
+    } catch (error) {
+      console.error('Error deleting blog:', error)
+      alert('Failed to delete blog')
+    }
   }
 
   if (status === 'loading') {
@@ -148,7 +173,12 @@ export default function AdminBlogsPage() {
         {/* Content */}
         {activeView === 'list' ? (
           <div className="space-y-3 sm:space-y-4">
-            {blogs.length === 0 ? (
+            {loading ? (
+              <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-3 text-gray-600">Loading blogs...</p>
+              </div>
+            ) : blogs.length === 0 ? (
               <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 lg:p-12 text-center">
                 <div className="text-4xl sm:text-5xl lg:text-6xl mb-3 sm:mb-4">📝</div>
                 <p className="text-gray-500 text-sm sm:text-base lg:text-lg mb-3 sm:mb-4">No blogs created yet</p>
@@ -180,6 +210,12 @@ export default function AdminBlogsPage() {
                         </div>
                       </div>
                       <div className="flex sm:flex-col gap-2">
+                        <button
+                          onClick={() => router.push(`/blog/${blog.id}`)}
+                          className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition"
+                        >
+                          View
+                        </button>
                         <button
                           onClick={() => handleDelete(blog.id)}
                           className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition"
@@ -222,7 +258,7 @@ export default function AdminBlogsPage() {
                     onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
                     className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={2}
-                    placeholder="Brief summary..."
+                    placeholder="Brief summary (optional - auto-generated if empty)"
                   />
                 </div>
 

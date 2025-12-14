@@ -11,9 +11,7 @@ interface Blog {
   content: string
   excerpt: string
   category: string
-  author: string
-  publishedAt: string
-  imageUrl?: string
+  createdAt: string
 }
 
 export default function BlogPage() {
@@ -24,40 +22,6 @@ export default function BlogPage() {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Sample blogs (will be replaced with API call)
-  const sampleBlogs: Blog[] = [
-    {
-      id: '1',
-      title: 'Getting Started with Data Structures',
-      excerpt: 'Learn the fundamentals of data structures and why they are important in computer science.',
-      content: 'Full content here...',
-      category: 'Tutorial',
-      author: 'Admin',
-      publishedAt: new Date().toISOString(),
-      imageUrl: ''
-    },
-    {
-      id: '2',
-      title: 'Top 10 Algorithm Patterns for Coding Interviews',
-      excerpt: 'Master these algorithm patterns to ace your coding interviews.',
-      content: 'Full content here...',
-      category: 'Career',
-      author: 'Admin',
-      publishedAt: new Date().toISOString(),
-      imageUrl: ''
-    },
-    {
-      id: '3',
-      title: 'Understanding Time Complexity',
-      excerpt: 'A comprehensive guide to Big O notation and time complexity analysis.',
-      content: 'Full content here...',
-      category: 'Tutorial',
-      author: 'Admin',
-      publishedAt: new Date().toISOString(),
-      imageUrl: ''
-    }
-  ]
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -75,10 +39,21 @@ export default function BlogPage() {
     filterBlogs()
   }, [blogs, selectedCategory, searchQuery])
 
-  const fetchBlogs = () => {
-    // TODO: Replace with actual API call
-    setBlogs(sampleBlogs)
-    setLoading(false)
+  const fetchBlogs = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/blog')
+      if (response.ok) {
+        const data = await response.json()
+        setBlogs(data)
+      } else {
+        console.error('Failed to fetch blogs')
+      }
+    } catch (error) {
+      console.error('Error fetching blogs:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filterBlogs = () => {
@@ -213,8 +188,8 @@ export default function BlogPage() {
 
                   {/* Meta */}
                   <div className="flex items-center justify-between text-xs sm:text-sm text-gray-500">
-                    <span>By {blog.author}</span>
-                    <span>{formatDate(blog.publishedAt)}</span>
+                    <span>By Admin</span>
+                    <span>{formatDate(blog.createdAt)}</span>
                   </div>
                 </div>
               </Link>
