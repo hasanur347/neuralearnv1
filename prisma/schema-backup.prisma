@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ResourceType {
+  PDF
+  VIDEO
+  ARTICLE
+  LINK
+}
+
+enum PerformanceLevel {
+  WEAK
+  AVERAGE
+  STRONG
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  password      String
+  role          Role           @default(STUDENT)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  quizzes       Quiz[]         @relation("InstructorQuizzes")
+  quizAttempts  QuizAttempt[]
+  resources     Resource[]     @relation("InstructorResources")
+  reports       Report[]       @relation("StudentReports")
+  
+  @@map("users")
+}
+
+model Subject {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  code          String         @unique
+  description   String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  topics        Topic[]
+  quizzes       Quiz[]
+  resources     Resource[]
+  
+  @@map("subjects")
+}
+
+model Topic {
+  id            String         @id @default(cuid())
+  subjectId     String
+  name          String
+  description   String?
+  orderIndex    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  quizzes       Quiz[]
+  questions     Question[]
+  resources     Resource[]
+  knowledgeBase KnowledgeBase[]
+  
+  @@unique([subjectId, name])
+  @@map("topics")
+}
+
+model Quiz {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  subjectId     String
+  topicId       String?
+  difficulty    DifficultyLevel @default(MEDIUM)
+  duration      Int            @default(30)
+  instructorId  String
+  isPublished   Boolean        @default(false)
+  isApproved    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  instructor    User           @relation("InstructorQuizzes", fields: [instructorId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  attempts      QuizAttempt[]
+  
+  @@index([subjectId])
+  @@index([topicId])
+  @@map("quizzes")
+}
+
+model Question {
+  id            String         @id @default(cuid())
+  quizId        String
+  topicId       String?
+  question      String
+  options       String[]
+  correctAnswer Int
+  explanation   String?
+  difficulty    DifficultyLevel @default(MEDIUM)
+  orderIndex    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  
+  @@map("questions")
+}
+
+model QuizAttempt {
+  id            String         @id @default(cuid())
+  quizId        String
+  userId        String
+  answers       Json
+  score         Float
+  totalQuestions Int
+  correctAnswers Int
+  weakTopics    String[]
+  completedAt   DateTime       @default(now())
+  timeSpent     Int
+  
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([quizId])
+  @@map("quiz_attempts")
+}
+
+model Resource {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  type          ResourceType
+  url           String
+  subjectId     String
+  topicId       String?
+  instructorId  String
+  difficulty    DifficultyLevel @default(MEDIUM)
+  isApproved    Boolean        @default(false)
+  viewCount     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  instructor    User           @relation("InstructorResources", fields: [instructorId], references: [id], onDelete: Cascade)
+  
+  @@index([subjectId])
+  @@index([topicId])
+  @@map("resources")
+}
+
+model KnowledgeBase {
+  id            String         @id @default(cuid())
+  topicId       String
+  title         String
+  content       String
+  difficulty    DifficultyLevel @default(MEDIUM)
+  resources     String[]
+  tags          String[]
+  embedding     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  topic         Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  
+  @@index([topicId])
+  @@map("knowledge_base")
+}
+
+model PerformanceAnalysis {
+  id            String         @id @default(cuid())
+  userId        String
+  subjectId     String?
+  topicId       String?
+  accuracy      Float
+  totalAttempts Int
+  avgScore      Float
+  level         PerformanceLevel
+  lastAnalyzed  DateTime       @default(now())
+  
+  @@unique([userId, subjectId, topicId])
+  @@index([userId])
+  @@map("performance_analysis")
+}
+
+model Report {
+  id            String         @id @default(cuid())
+  userId        String
+  generatedBy   String
+  title         String
+  content       Json
+  fileUrl       String?
+  createdAt     DateTime       @default(now())
+  
+  user          User           @relation("StudentReports", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("reports")
+}

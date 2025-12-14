@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ResourceType {
+  PDF
+  VIDEO
+  ARTICLE
+  LINK
+}
+
+enum LearningLevel {
+  WEAK
+  AVERAGE
+  STRONG
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  password      String
+  role          Role           @default(STUDENT)
+  bio           String?
+  avatar        String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  quizzes       Quiz[]         @relation("InstructorQuizzes")
+  quizAttempts  QuizAttempt[]
+  resources     Resource[]     @relation("InstructorResources")
+  reports       Report[]       @relation("GeneratedReports")
+  
+  @@map("users")
+}
+
+model Subject {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  code          String         @unique
+  description   String?
+  icon          String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  topics        Topic[]
+  quizzes       Quiz[]
+  resources     Resource[]
+  
+  @@map("subjects")
+}
+
+model Topic {
+  id            String         @id @default(cuid())
+  subjectId     String
+  name          String
+  description   String?
+  order         Int            @default(0)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  quizzes       Quiz[]
+  questions     Question[]
+  resources     Resource[]
+  knowledgeBase KnowledgeBase[]
+  
+  @@unique([subjectId, name])
+  @@map("topics")
+}
+
+model Quiz {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  subjectId     String
+  topicId       String?
+  difficulty    Difficulty     @default(MEDIUM)
+  duration      Int            @default(30)
+  totalMarks    Int            @default(0)
+  passingMarks  Int            @default(0)
+  instructorId  String
+  isPublished   Boolean        @default(false)
+  isApproved    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  instructor    User           @relation("InstructorQuizzes", fields: [instructorId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  attempts      QuizAttempt[]
+  
+  @@map("quizzes")
+}
+
+model Question {
+  id            String         @id @default(cuid())
+  quizId        String
+  topicId       String?
+  question      String
+  options       String[]
+  correctAnswer Int
+  explanation   String?
+  difficulty    Difficulty     @default(MEDIUM)
+  marks         Int            @default(1)
+  order         Int            @default(0)
+  createdAt     DateTime       @default(now())
+  
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  
+  @@map("questions")
+}
+
+model QuizAttempt {
+  id            String         @id @default(cuid())
+  quizId        String
+  userId        String
+  answers       Json
+  score         Float
+  totalQuestions Int
+  correctAnswers Int
+  totalMarks    Int
+  marksObtained Float
+  weakAreas     String[]
+  completedAt   DateTime       @default(now())
+  timeSpent     Int
+  
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("quiz_attempts")
+}
+
+model Resource {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  type          ResourceType   @default(ARTICLE)
+  url           String?
+  fileUrl       String?
+  content       String?
+  subjectId     String
+  topicId       String?
+  difficulty    Difficulty     @default(MEDIUM)
+  instructorId  String
+  isApproved    Boolean        @default(false)
+  views         Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  instructor    User           @relation("InstructorResources", fields: [instructorId], references: [id], onDelete: Cascade)
+  
+  @@map("resources")
+}
+
+model KnowledgeBase {
+  id            String         @id @default(cuid())
+  subjectId     String?
+  topicId       String?
+  title         String
+  content       String
+  difficulty    Difficulty     @default(MEDIUM)
+  resources     String[]
+  tags          String[]
+  embedding     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  topic         Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  
+  @@index([topicId])
+  @@map("knowledge_base")
+}
+
+model Report {
+  id            String         @id @default(cuid())
+  title         String
+  type          String
+  generatedById String
+  filters       Json?
+  data          Json
+  format        String         @default("PDF")
+  createdAt     DateTime       @default(now())
+  
+  generatedBy   User           @relation("GeneratedReports", fields: [generatedById], references: [id], onDelete: Cascade)
+  
+  @@map("reports")
+}
