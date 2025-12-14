@@ -2,14 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-
-const createTopicSchema = z.object({
-  subjectId: z.string(),
-  name: z.string().min(2),
-  description: z.string().optional(),
-  orderIndex: z.number().optional()
-})
 
 // GET topics
 export async function GET(request: NextRequest) {
@@ -25,19 +17,11 @@ export async function GET(request: NextRequest) {
         subject: {
           select: {
             id: true,
-            name: true,
-            code: true
-          }
-        },
-        _count: {
-          select: {
-            quizzes: true,
-            resources: true,
-            knowledgeBase: true
+            name: true
           }
         }
       },
-      orderBy: { orderIndex: 'asc' }
+      orderBy: { createdAt: 'asc' }
     })
 
     return NextResponse.json(topics)
@@ -63,18 +47,32 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validatedData = createTopicSchema.parse(body)
+    
+    // Manual validation
+    if (!body.subjectId) {
+      return NextResponse.json(
+        { error: 'Subject ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    if (!body.name || body.name.length < 2) {
+      return NextResponse.json(
+        { error: 'Name must be at least 2 characters' },
+        { status: 400 }
+      )
+    }
 
     const topic = await prisma.topic.create({
-      data: validatedData,
+      data: {
+        subjectId: body.subjectId,
+        name: body.name,
+        description: body.description || null,
+        difficulty: body.difficulty || 'MEDIUM',
+        isActive: body.isActive !== false
+      },
       include: {
-        subject: true,
-        _count: {
-          select: {
-            quizzes: true,
-            resources: true
-          }
-        }
+        subject: true
       }
     })
 
@@ -82,17 +80,10 @@ export async function POST(request: NextRequest) {
       { message: 'Topic created successfully', topic },
       { status: 201 }
     )
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input data', details: error.errors },
-        { status: 400 }
-      )
-    }
-
+  } catch (error: any) {
     console.error('Error creating topic:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
@@ -115,11 +106,15 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validatedData = createTopicSchema.partial().parse(body)
 
     const topic = await prisma.topic.update({
       where: { id },
-      data: validatedData,
+      data: {
+        name: body.name,
+        description: body.description,
+        difficulty: body.difficulty,
+        isActive: body.isActive
+      },
       include: {
         subject: true
       }

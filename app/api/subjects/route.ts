@@ -2,13 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-
-const createSubjectSchema = z.object({
-  name: z.string().min(2),
-  code: z.string().min(2).max(10),
-  description: z.string().optional()
-})
 
 // GET all subjects
 export async function GET(request: NextRequest) {
@@ -21,23 +14,9 @@ export async function GET(request: NextRequest) {
       where: onlyActive ? { isActive: true } : undefined,
       include: includeTopics ? {
         topics: {
-          orderBy: { orderIndex: 'asc' }
-        },
-        _count: {
-          select: {
-            quizzes: true,
-            resources: true
-          }
+          orderBy: { createdAt: 'asc' }
         }
-      } : {
-        _count: {
-          select: {
-            topics: true,
-            quizzes: true,
-            resources: true
-          }
-        }
-      },
+      } : undefined,
       orderBy: { name: 'asc' }
     })
 
@@ -64,35 +43,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validatedData = createSubjectSchema.parse(body)
+    
+    // Manual validation
+    if (!body.name || body.name.length < 2) {
+      return NextResponse.json(
+        { error: 'Name must be at least 2 characters' },
+        { status: 400 }
+      )
+    }
 
     // Check if subject already exists
     const existing = await prisma.subject.findFirst({
-      where: {
-        OR: [
-          { name: validatedData.name },
-          { code: validatedData.code }
-        ]
-      }
+      where: { name: body.name }
     })
 
     if (existing) {
       return NextResponse.json(
-        { error: 'Subject with this name or code already exists' },
+        { error: 'Subject with this name already exists' },
         { status: 400 }
       )
     }
 
     const subject = await prisma.subject.create({
-      data: validatedData,
-      include: {
-        _count: {
-          select: {
-            topics: true,
-            quizzes: true,
-            resources: true
-          }
-        }
+      data: {
+        name: body.name,
+        description: body.description || null,
+        icon: body.icon || null,
+        isActive: body.isActive !== false
       }
     })
 
@@ -100,17 +77,10 @@ export async function POST(request: NextRequest) {
       { message: 'Subject created successfully', subject },
       { status: 201 }
     )
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input data', details: error.errors },
-        { status: 400 }
-      )
-    }
-
+  } catch (error: any) {
     console.error('Error creating subject:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
@@ -133,19 +103,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validatedData = createSubjectSchema.partial().parse(body)
 
     const subject = await prisma.subject.update({
       where: { id },
-      data: validatedData,
-      include: {
-        _count: {
-          select: {
-            topics: true,
-            quizzes: true,
-            resources: true
-          }
-        }
+      data: {
+        name: body.name,
+        description: body.description,
+        icon: body.icon,
+        isActive: body.isActive
       }
     })
 
