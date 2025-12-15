@@ -114,7 +114,7 @@ export default function Footer() {
             {/* Developer Credit */}
             <div className="text-sm text-center sm:text-right">
               <p className="text-gray-400">
-                Prepared by{' '}
+                Developed by{' '}
                 <span className="text-blue-400 font-semibold">
                   Md Bipul Hasan
                 </span>
